@@ -222,6 +222,7 @@ int int_key_hash(void *key)
   return (int)hash;
 }
 
+
 int main (int argc, char** argv){
 
     struct Map *map_out;
@@ -229,15 +230,17 @@ int main (int argc, char** argv){
     capacity = 100;
     struct int_key *k1 = malloc(sizeof(*k1)*capacity);
     struct int_key *k2 = malloc(sizeof *k2);
+    map_allocate(&int_key_eq, &int_key_hash, capacity, &map_out);
 
-//PAPI starts here 
+//PAPI starts here
 
-int retval; 
+int retval;
 int EventSet = PAPI_NULL;
-long long values1[6], values2[6], values3[6], values4[6], values5[6], values6[6];
+long long values1[6], values2[6];
+//, values3[6], values4[6], values5[6], values6[6];
 const char *event_names[] = {"PAPI_TOT_CYC", "PAPI_TOT_INS", "PAPI_L1_DCM", "PAPI_L1_ICM", "PAPI_L2_TCM", "PAPI_L3_TCM"};
 //PAPI initialization
-retval = PAPI_library_init(PAPI_VER_CURRENT);
+ retval = PAPI_library_init(PAPI_VER_CURRENT);
 
 if (retval != PAPI_VER_CURRENT){
     fprintf(stderr, "Error initializing PAPI! %s\n",
@@ -284,12 +287,12 @@ if (retval != PAPI_OK){
     fprintf(stderr, "Error adding event[%s]: %s\n", event_names[4],
             PAPI_strerror(retval));
 }
-
-retval = PAPI_add_named_event(EventSet, event_names[5]);
+ 
+/* retval = PAPI_add_named_event(EventSet, event_names[5]);
 if (retval != PAPI_OK){
     fprintf(stderr, "Error adding event[%s]: %s\n", event_names[5],
             PAPI_strerror(retval));
-}
+} */
 
 
 
@@ -300,73 +303,120 @@ if (retval!=PAPI_OK){
     fprintf(stderr, "Error starting CUDA: %s\n",
             PAPI_strerror(retval));
 }
+ 
 
-/*     int map_allocate(map_keys_equality* keq,  map_key_hash* khash,
-                            unsigned capacity,
-                            struct Map** map_out) */
-  map_allocate(&int_key_eq, &int_key_hash, capacity, &map_out);
+/* int SIZE = 100;
+int keys[SIZE];
+int value;
+
+for (int i = 0; i < SIZE; i++){
+  printf("The Key №: %d  : ", (i+1));
+    keys[i] = rand()%100;
+    printf("%d\n", keys[i]);
+
+    printf("The Value  : ");
+    value = rand()%1000;
+    printf("%d\n", value);
+
+        void *key_ptr = &keys;
+        int *value_ptr = &value;
+
+        map_put(map_out, &key_ptr, value);
+        printf("value added %d\n", map_get(map_out, &key_ptr, value_ptr));
+        printf("\n");
+    }
+    */
 
 
- //int map_get(struct Map* map, void* key, int* value_out)
-  char key1[] = "qwe123";
+
+/*   char key1[] = "qwe123";
   void *key_ptr1 = &key1;
-  int value1 = 23;
+  int value1 = 27;
   int *value_ptr1 = &value1;
 
   char key2[] = "qwe124";
   void *key_ptr2 = &key2;
   int value2 = 24;
   int *value_ptr2 = &value2;
+
+  char key3[] = "qwe125";
+  void *key_ptr3 = &key3;
+  int value3 = 24;
+  int *value_ptr3 = &value3; */
  
- //i forgot what is this comment for
- /*  int number, value;
-  char key[];
-
-  printf("how many elemts do you want to add?\n");
-  scanf("%d", number);
-  for (int i =0; i < number; i++){
-    printf("print the value of the key you want to assign\n");
-    scanf("%s", key);
-    void *key_ptr = &key;
-
-    printf("print the value you want to insert\n");
-    scanf("%d", value);
-    int *value_ptr = &value;
-    map_put(map_out, &key_ptr, value);
-  } */
-
-  //void map_put(struct Map* map, void* key, int value)
+/*
   map_put(map_out, &key_ptr1, value1);
   map_put(map_out, &key_ptr2, value2);
-  //int map_get(struct Map* map, void* key, int* value_out);
+  map_put(map_out, &key_ptr3, value3);
+
   printf("%d\n", map_get(map_out, &key_ptr1, value_ptr1));
   printf("%19s, %d\n", key_ptr1, value1);
 
   printf("%d\n", map_get(map_out, &key_ptr2, value_ptr2));
-  printf("%d\n", value2);
+  printf("%19s, %d\n", key_ptr2, value2);
 
-  printf("%d\n", map_get(map_out, &key_ptr1, value_ptr1));  
-
+  printf("%d\n", map_get(map_out, &key_ptr3, value_ptr3));
+  printf("%19s, %d\n", key_ptr3, value3);
+ */
 
 retval = PAPI_stop(EventSet, values1);
 if((retval != PAPI_OK) ){
     fprintf(stderr, "Error stopping: %s\n",
                 PAPI_strerror(retval));
 } else {
-    printf("measured %lld %s  \t\n",  values1[0], event_names[0]);
-    printf("measured %lld %s  \t\n",  values1[1], event_names[1]);
-    printf("measured %lld %s  \t\n",  values1[2], event_names[2]);
-    printf("measured %lld %s  \t\n",  values1[3], event_names[3]);
-    printf("measured %lld %s  \t\n",  values1[4], event_names[4]);
-    printf("measured %lld %s  \t\n",  values1[5], event_names[5]);
+  for (int i = 0; i < 5; i++){
+    printf("measured %lld %s  \t\n",  values1[i], event_names[i]);
+  }
+  printf("\n");
 }
-	return 0;
+    
+
+  
+PAPI_reset(EventSet);
+retval = PAPI_start(EventSet);
+
+if (retval!=PAPI_OK){
+    fprintf(stderr, "Error starting CUDA: %s\n",
+            PAPI_strerror(retval));
+}
+ 
+
+int SIZE = 100;
+int keys[SIZE];
+int value;
+
+for (int i = 0; i < SIZE; i++){
+  //printf("The Key №: %d  : ", (i+1));
+    keys[i] = rand()%100;
+    //printf("%d\n", keys[i]);
+
+    //printf("The Value  : ");
+    value = rand()%1000;
+    //printf("%d\n", value);
+
+        void *key_ptr = &keys;
+        int *value_ptr = &value;
+
+        map_put(map_out, &key_ptr, value);
+        /* printf("value added %d\n", map_get(map_out, &key_ptr, value_ptr));
+        printf("\n");   */
+    }
+
+retval = PAPI_stop(EventSet, values1);
+if((retval != PAPI_OK) ){
+    fprintf(stderr, "Error stopping: %s\n",
+                PAPI_strerror(retval));
+} else {
+  for (int i = 0; i < 5; i++){
+    printf("measured %lld %s  \t\n",  values2[i], event_names[i]);
+  }
+}
+    return 0;
 
 PAPI_cleanup_eventset(EventSet);
 PAPI_destroy_eventset(&EventSet);
 
 }
-
 
 
 
