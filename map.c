@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include "map.h"
 #include "map-impl.c"
+#include <time.h>
+
 
 #include <papi.h>
 
@@ -37,6 +39,11 @@ struct int_key
       uint8_t protocol;
     };
 
+int counter = 0;
+
+
+
+
 
  
 unsigned int map_allocate(map_keys_equality* keq,  map_key_hash* khash,
@@ -44,6 +51,7 @@ unsigned int map_allocate(map_keys_equality* keq,  map_key_hash* khash,
                             struct Map** map_out)
 
 {
+  counter++;
 
   #ifdef CAPACITY_POW2
   if (capacity == 0 || (capacity & (capacity - 1)) != 0) {
@@ -121,6 +129,7 @@ unsigned int map_allocate(map_keys_equality* keq,  map_key_hash* khash,
 int map_get(struct Map* map, void* key, int* value_out)
 
 {
+  counter++;
   map_key_hash* khash = map->khash;
   unsigned hash = khash(key);
   return map_impl_get(map->busybits,
@@ -138,6 +147,7 @@ int map_get(struct Map* map, void* key, int* value_out)
 void map_put(struct Map* map, void* key, int value)
 
 {
+  counter++;
   map_key_hash* khash = map->khash;
   unsigned hash = khash(key);
   map_impl_put(map->busybits,
@@ -156,6 +166,7 @@ void map_put(struct Map* map, void* key, int value)
 void map_erase(struct Map* map, void* key, void** trash)
 
 {
+  counter++;
   map_key_hash* khash = map->khash;
   unsigned hash = khash(key);
   map_impl_erase(map->busybits,
@@ -227,10 +238,13 @@ int main (int argc, char** argv){
 
     struct Map *map_out;
     unsigned capacity;
-    capacity = 100;
+    capacity = 1000;
     struct int_key *k1 = malloc(sizeof(*k1)*capacity);
     struct int_key *k2 = malloc(sizeof *k2);
     map_allocate(&int_key_eq, &int_key_hash, capacity, &map_out);
+
+srand(time(0));
+int SIZE = rand()%1000;
 
 //PAPI starts here
 
@@ -329,7 +343,8 @@ for (int i = 0; i < SIZE; i++){
 
 
 
-/*   char key1[] = "qwe123";
+/*
+  char key1[] = "qwe123";
   void *key_ptr1 = &key1;
   int value1 = 27;
   int *value_ptr1 = &value1;
@@ -342,10 +357,10 @@ for (int i = 0; i < SIZE; i++){
   char key3[] = "qwe125";
   void *key_ptr3 = &key3;
   int value3 = 24;
-  int *value_ptr3 = &value3; */
+  int *value_ptr3 = &value3;
  
-/*
-  map_put(map_out, &key_ptr1, value1);
+
+   map_put(map_out, &key_ptr1, value1);
   map_put(map_out, &key_ptr2, value2);
   map_put(map_out, &key_ptr3, value3);
 
@@ -357,7 +372,18 @@ for (int i = 0; i < SIZE; i++){
 
   printf("%d\n", map_get(map_out, &key_ptr3, value_ptr3));
   printf("%19s, %d\n", key_ptr3, value3);
- */
+
+  //void map_erase(struct Map* map, void* key, void** trash);
+  map_erase(map_out, &key_ptr1, &value_ptr2);
+
+  printf("%d\n", map_get(map_out, &key_ptr1, value_ptr1));
+
+  map_put(map_out, &key_ptr1, value1);
+  printf("%d\n", map_get(map_out, &key_ptr1, value_ptr1));
+  printf("%19s, %d\n", key_ptr1, value1); */
+printf("\n");
+printf("Performance measurements before starting map:\n");
+printf("\n");
 
 retval = PAPI_stop(EventSet, values1);
 if((retval != PAPI_OK) ){
@@ -379,30 +405,88 @@ if (retval!=PAPI_OK){
     fprintf(stderr, "Error starting CUDA: %s\n",
             PAPI_strerror(retval));
 }
- 
 
-int SIZE = 100;
+
 int keys[SIZE];
-int value;
+int value[SIZE];
 
-for (int i = 0; i < SIZE; i++){
+int num_max_iterated_data_elements = 0;
+
+for (int i = 0; i <= SIZE; i++){
   //printf("The Key №: %d  : ", (i+1));
     keys[i] = rand()%100;
     //printf("%d\n", keys[i]);
 
     //printf("The Value  : ");
-    value = rand()%1000;
+    value[i] = rand()%1000;
     //printf("%d\n", value);
 
         void *key_ptr = &keys;
         int *value_ptr = &value;
 
         map_put(map_out, &key_ptr, value);
-        /* printf("value added %d\n", map_get(map_out, &key_ptr, value_ptr));
-        printf("\n");   */
+        //printf("value added %d\n", map_get(map_out, &key_ptr, value_ptr));
+        //printf("value added %d\n", map_get(map_out, &key_ptr, value_ptr));
+        num_max_iterated_data_elements++;
     }
 
-retval = PAPI_stop(EventSet, values1);
+//find max value to be inserted
+  int max = 0;
+      for (int i = 0; i <=SIZE; i++){
+        if (value[i] > max){
+          max = value[i];
+          //printf("%d\n", max);
+        }
+      }
+
+int keys_r[SIZE];
+int value_r[SIZE];
+int max_ts = 0; //max value to be searched (value)
+
+//search for elements (generate random key and value to search for it in the existing map)
+int num;
+printf("Enter a number of keys that you want to find (1 to %d)\n", map_size(map_out));
+scanf("%d", &num);
+for (int i = 0; i < num; i++){
+    srand(time(0));
+    keys_r[i] = rand()%100;
+    value_r[i] = rand()%1000;
+
+    void *key_ptr_r = &keys_r;
+    int *value_ptr_r = &value_r;
+    if (map_get(map_out, &key_ptr_r, value_ptr_r) == 1){
+      printf("Value found! The value is %d with key %d", key_ptr_r, value_ptr_r);
+    }
+    //printf("value found (1) or not(0)? %d\n", map_get(map_out, &key_ptr_r, value_ptr_r));
+    num_max_iterated_data_elements++;
+    if (value_r[i] > max_ts){
+              max_ts = value_r[i];
+            }
+  }
+
+
+
+//find max value to be deleted
+int max_td = 0; //max value to be deleted
+int key_td = 0;
+for (int i = 0; i <= SIZE; i++){
+   void *key_ptr = &keys;
+   int *value_ptr = &value;
+  if (keys[i] % 2 == 0){
+            map_erase(map_out, &key_ptr, &value_ptr);
+            num_max_iterated_data_elements++;
+            if (value[i] > max_td){
+              max_td = value[i];
+              key_td = keys[i];
+            }
+            //printf("value deleted succesfully %d\n", map_get(map_out, &key_ptr, value_ptr));
+        }
+}
+
+printf("\n");
+printf("Performance measurements after determinig data structure behavior:\n");
+printf("\n");
+retval = PAPI_stop(EventSet, values2);
 if((retval != PAPI_OK) ){
     fprintf(stderr, "Error stopping: %s\n",
                 PAPI_strerror(retval));
@@ -411,10 +495,28 @@ if((retval != PAPI_OK) ){
     printf("measured %lld %s  \t\n",  values2[i], event_names[i]);
   }
 }
-    return 0;
+ 
+printf("\n");
 
 PAPI_cleanup_eventset(EventSet);
 PAPI_destroy_eventset(&EventSet);
+printf("\n");
+printf("Data structure behavior:\n");
+printf("\n");
+
+
+//data structure behavior
+printf("Total number of invocations for all interface functions is %d\n", counter);
+
+srand(time(0));
+int n = rand()%100;
+printf("Size of element with the key %d and value %d on the position %d  is %d bytes\n", keys[n], value[n], n, sizeof(keys[n]));
+
+printf("Maximum value of data to be inserted is %d\n", max);
+printf("Maximum value of data to be removed %d with the key %d\n", max_td, key_td);
+printf("Maximum value of data to be searched is %d\n", max_ts);
+printf("Maximum number of data elements to be iterated is %d\n", num_max_iterated_data_elements);
+
 
 }
 
